@@ -4,4 +4,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+venv/
 config/companies.csv.bak
