@@ -1,0 +1,91 @@
+name: crawl
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: crawl
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Restore crawler state from release
+        id: restore-state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data
+          releases="$(gh release list --limit 1000 --json tagName --jq '.[].tagName')"
+          if printf '%s\n' "$releases" | grep -Fxq state; then
+            gh release download state --pattern 'jobs.db.xz' --dir data --clobber
+            xz -t data/jobs.db.xz
+            xz -dc data/jobs.db.xz > data/jobs.db
+            rm data/jobs.db.xz
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Restored compressed database from the state release."
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No state release exists; this is the initial seed run."
+          fi
+
+      - name: Run crawler
+        run: |
+          if [ "${{ steps.restore-state.outputs.found }}" = "true" ]; then
+            python -m src.main run
+          else
+            python -m src.main run --no-email
+          fi
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+
+      # Save state even if the crawler failed after sending email, so sent alerts
+      # stay marked. Skip only when the restore itself failed (possibly partial DB).
+      - name: Compress and report state size
+        if: ${{ always() && steps.restore-state.outcome == 'success' && hashFiles('data/jobs.db') != '' }}
+        run: |
+          xz -T0 -6 -c data/jobs.db > data/jobs.db.xz
+          python - <<'PY'
+          from pathlib import Path
+
+          database_size = Path("data/jobs.db").stat().st_size
+          asset_size = Path("data/jobs.db.xz").stat().st_size
+          print(f"State database: {database_size / 1048576:.2f} MiB")
+          print(f"Compressed state asset: {asset_size / 1048576:.2f} MiB")
+          if asset_size > 300 * 1024 * 1024:
+              print("::warning::Compressed state asset exceeds 300 MiB; review growth before reaching GitHub's 2 GiB release-asset limit.")
+          PY
+
+      - name: Save state as release asset
+        if: ${{ always() && steps.restore-state.outcome == 'success' && hashFiles('data/jobs.db.xz') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          releases="$(gh release list --limit 1000 --json tagName --jq '.[].tagName')"
+          if ! printf '%s\n' "$releases" | grep -Fxq state; then
+            gh release create state \
+              --target "$GITHUB_SHA" \
+              --title "GetANaurki state" \
+              --notes "Latest compressed crawler database. Managed by the crawl workflow."
+          fi
+          gh release upload state data/jobs.db.xz --clobber
+          if [ -f data/jobs.xlsx ]; then
+            gh release upload state data/jobs.xlsx --clobber
+          fi

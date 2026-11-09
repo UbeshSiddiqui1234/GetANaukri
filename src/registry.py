@@ -1,0 +1,255 @@
+"""Company registry loader and validator for GetANaurki."""
+import csv
+from dataclasses import dataclass
+import logging
+from pathlib import Path
+from src.models import Company
+
+logger = logging.getLogger(__name__)
+
+VALID_ATS = {
+    "greenhouse",
+    "lever",
+    "ashby",
+    "smartrecruiters",
+    "workable",
+    "workday",
+    "jsonld",
+    "recruitee",
+    "bamboohr",
+    "breezy",
+}
+VALID_TIERS = {1, 2, 3}
+
+
+class RegistryError(Exception):
+    """Raised when the company CSV is malformed or invalid."""
+    pass
+
+
+def load_companies(
+    path: str | Path = "config/companies.csv",
+    allow_extra: bool = True,
+) -> list[Company]:
+    """Load and validate company list from CSV.
+
+    Rules:
+    - Header: name,ats,slug,tier (optional 'extra' column allowed from Phase 8 onward).
+    - Lines starting with '#' or blank lines are ignored.
+    - ats must be one of: greenhouse, lever, ashby, smartrecruiters, workable, workday, jsonld, recruitee, bamboohr, breezy.
+    - tier must be one of: 1, 2, 3.
+    - Duplicate (ats, slug) pairs keep the first and log a warning.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise RegistryError(f"Company file not found: {p}")
+
+    with open(p, "r", encoding="utf-8") as f:
+        raw_lines = f.readlines()
+
+    # Filter comments and blank lines
+    filtered_lines: list[str] = []
+    for line in raw_lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        filtered_lines.append(line)
+
+    if not filtered_lines:
+        raise RegistryError(f"Company CSV file {p} is empty or contains only comments")
+
+    reader = csv.reader(filtered_lines)
+    try:
+        header = next(reader)
+    except StopIteration:
+        raise RegistryError(f"Company CSV file {p} has no header")
+
+    clean_header = [col.strip().lower() for col in header]
+
+    if not allow_extra:
+        if clean_header != ["name", "ats", "slug", "tier"]:
+            raise RegistryError(
+                f"Invalid CSV header in {p}. Expected exactly 'name,ats,slug,tier', got: {','.join(clean_header)}"
+            )
+    else:
+        if clean_header not in [["name", "ats", "slug", "tier"], ["name", "ats", "slug", "tier", "extra"]]:
+            raise RegistryError(
+                f"Invalid CSV header in {p}. Expected 'name,ats,slug,tier' or 'name,ats,slug,tier,extra', got: {','.join(clean_header)}"
+            )
+
+    companies: list[Company] = []
+    seen_keys: set[str] = set()
+
+    for row_idx, row in enumerate(reader, start=2):
+        if not row:
+            continue
+
+        if len(row) < 4:
+            raise RegistryError(
+                f"Row {row_idx} in {p} has {len(row)} columns, expected at least 4: {row}"
+            )
+        if not allow_extra and len(row) > 4:
+            raise RegistryError(
+                f"Row {row_idx} in {p} has {len(row)} columns, expected exactly 4: {row}"
+            )
+
+        name = row[0].strip()
+        ats = row[1].strip().lower()
+        slug = row[2].strip()
+        tier_str = row[3].strip()
+        extra = row[4].strip() if len(row) > 4 and row[4].strip() else None
+
+        if not name:
+            raise RegistryError(f"Row {row_idx} in {p} has empty company name")
+        if ats not in VALID_ATS:
+            raise RegistryError(
+                f"Row {row_idx} in {p} has invalid ATS '{ats}'. Must be one of: {sorted(VALID_ATS)}"
+            )
+        if not slug:
+            raise RegistryError(f"Row {row_idx} in {p} has empty slug")
+
+        try:
+            tier = int(tier_str)
+        except ValueError:
+            raise RegistryError(
+                f"Row {row_idx} in {p} has non-integer tier '{tier_str}'"
+            )
+
+        if tier not in VALID_TIERS:
+            raise RegistryError(
+                f"Row {row_idx} in {p} has invalid tier {tier}. Must be 1, 2, or 3"
+            )
+
+        comp = Company(name=name, ats=ats, slug=slug, tier=tier, extra=extra)
+        if comp.key in seen_keys:
+            logger.warning("Duplicate company key '%s' found at row %d; skipping duplicate", comp.key, row_idx)
+            continue
+
+        seen_keys.add(comp.key)
+        companies.append(comp)
+
+    return companies
+
+
+def load_dismissed(path: str | Path = "config/dismissed.txt") -> set[str]:
+    """Load job URLs, job IDs, or fingerprints the human never wants to see again.
+
+    One entry per line; `#` comments and blank lines are ignored. A missing file
+    means nothing is dismissed.
+    """
+    p = Path(path)
+    if not p.exists():
+        return set()
+    entries: set[str] = set()
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            entries.add(line.rstrip("/"))
+    return entries
+
+
+# Company stage, ordered from most to least preferred for alerts.
+SEGMENTS = ("seed", "series_a", "series_b", "series_c_plus", "midsize", "unknown", "large")
+STARTUP_SEGMENTS = frozenset({"seed", "series_a", "series_b"})
+META_HEADER = ["name", "segment", "team_size", "hq_country", "source"]
+
+
+@dataclass(frozen=True)
+class CompanyMeta:
+    name: str
+    segment: str = "unknown"
+    team_size: int | None = None
+    hq_country: str = ""
+    source: str = ""
+
+
+def segment_rank(segment: str | None) -> int:
+    """Sort key: seed first, large last, unknown just before large."""
+    try:
+        return SEGMENTS.index(segment or "unknown")
+    except ValueError:
+        return SEGMENTS.index("unknown")
+
+
+def estimate_segment(team_size: int | None) -> str:
+    """Estimate funding stage from headcount when the round is not known.
+
+    <=30 people ~ seed, <=150 ~ Series A, <=400 ~ Series B, <=2000 midsize, else large.
+    This is a heuristic; edit config/company_meta.csv and set source=manual to override.
+    """
+    if team_size is None or team_size <= 0:
+        return "unknown"
+    if team_size <= 30:
+        return "seed"
+    if team_size <= 150:
+        return "series_a"
+    if team_size <= 400:
+        return "series_b"
+    if team_size <= 2000:
+        return "midsize"
+    return "large"
+
+
+def _meta_key(name: str) -> str:
+    from src.discovery import normalize_company_name
+
+    return normalize_company_name(name)
+
+
+def load_company_meta(path: str | Path = "config/company_meta.csv") -> dict[str, CompanyMeta]:
+    """Load company stage metadata keyed by normalized company name.
+
+    Unknown segments become `unknown`; malformed rows are skipped with a warning.
+    A missing file means no metadata.
+    """
+    p = Path(path)
+    if not p.exists():
+        return {}
+    meta: dict[str, CompanyMeta] = {}
+    with open(p, newline="", encoding="utf-8") as f:
+        for line_no, row in enumerate(csv.DictReader(r for r in f if not r.startswith("#")), start=2):
+            name = (row.get("name") or "").strip()
+            if not name:
+                continue
+            segment = (row.get("segment") or "unknown").strip()
+            if segment not in SEGMENTS:
+                logger.warning("company_meta.csv line %d: unknown segment %r for %s", line_no, segment, name)
+                segment = "unknown"
+            raw_size = (row.get("team_size") or "").strip()
+            meta[_meta_key(name)] = CompanyMeta(
+                name=name,
+                segment=segment,
+                team_size=int(raw_size) if raw_size.isdigit() else None,
+                hq_country=(row.get("hq_country") or "").strip(),
+                source=(row.get("source") or "").strip(),
+            )
+    return meta
+
+
+def upsert_company_meta(path: str | Path, rows: list[CompanyMeta]) -> int:
+    """Add or refresh metadata rows; rows marked source=manual are never overwritten.
+
+    Returns how many rows were added or changed.
+    """
+    p = Path(path)
+    existing = load_company_meta(p)
+    changed = 0
+    for row in rows:
+        key = _meta_key(row.name)
+        old = existing.get(key)
+        if old and old.source == "manual":
+            continue
+        if old != row:
+            existing[key] = row
+            changed += 1
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
+        f.write("# Company stage for startup-first polling and alert order. segment is one of:\n")
+        f.write(f"# {', '.join(SEGMENTS)}. Set source=manual on rows you edit so imports keep them.\n")
+        writer = csv.writer(f)
+        writer.writerow(META_HEADER)
+        for m in sorted(existing.values(), key=lambda m: m.name.casefold()):
+            writer.writerow([m.name, m.segment, "" if m.team_size is None else m.team_size, m.hq_country, m.source])
+    tmp.replace(p)
+    return changed
