@@ -293,10 +293,18 @@ def send_email(
                 filename=fname,
             )
 
+    clean_password = "".join(password.split())
     logger.info("Sending email to %s: '%s'", alert_to, subject)
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-        smtp.login(user, password)
-        smtp.send_message(msg)
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+            smtp.login(user, clean_password)
+            smtp.send_message(msg)
+    except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, OSError) as e:
+        logger.warning("SMTP_SSL on port 465 failed (%s); trying fallback port 587 with STARTTLS...", e)
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
+            smtp.starttls()
+            smtp.login(user, clean_password)
+            smtp.send_message(msg)
     logger.info("Email sent successfully.")
 
 
