@@ -298,6 +298,7 @@ def send_email(
     logger.info("Sending email to %s: '%s'", alert_to, subject)
     context = ssl.create_default_context()
 
+    err465: Exception | None = None
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as smtp:
             smtp.ehlo()
@@ -305,8 +306,9 @@ def send_email(
             smtp.send_message(msg)
         logger.info("Email sent successfully via port 465.")
         return
-    except Exception as e465:
-        logger.warning("SMTP_SSL on port 465 failed (%s); trying fallback port 587 with STARTTLS...", e465)
+    except Exception as exc:
+        err465 = exc
+        logger.warning("SMTP_SSL on port 465 failed (%s); trying fallback port 587 with STARTTLS...", exc)
 
     try:
         with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
@@ -317,8 +319,8 @@ def send_email(
             smtp.send_message(msg)
         logger.info("Email sent successfully via port 587.")
     except Exception as e587:
-        logger.error("Both port 465 and port 587 failed. 465 error: %s | 587 error: %s", e465, e587)
-        raise
+        logger.error("Both port 465 and port 587 failed. 465 error: %s | 587 error: %s", err465, e587)
+        raise e587 from err465
 
 
 def send_ntfy(topic: str, title: str, message: str) -> None:
