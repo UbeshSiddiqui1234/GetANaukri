@@ -6,6 +6,7 @@ import logging
 import os
 from pathlib import Path
 import smtplib
+import socket
 import ssl
 import sqlite3
 import urllib.request
@@ -264,12 +265,12 @@ def send_email(
     html_content: str,
     attachments: list[tuple[str, bytes]] | None = None,
 ) -> None:
-    """Send email alert via Gmail SMTP over SSL (port 465)."""
+    """Send email alert via Gmail SMTP over SSL (port 465) with port 587 fallback."""
     load_env_file()
 
-    user = os.environ.get("GMAIL_USER")
-    password = os.environ.get("GMAIL_APP_PASSWORD")
-    alert_to = os.environ.get("ALERT_TO")
+    user = os.environ.get("GMAIL_USER", "").strip().strip("'\"")
+    password = os.environ.get("GMAIL_APP_PASSWORD", "").strip().strip("'\"")
+    alert_to = os.environ.get("ALERT_TO", "").strip().strip("'\"")
 
     if not user or not password or not alert_to:
         missing = [k for k in ["GMAIL_USER", "GMAIL_APP_PASSWORD", "ALERT_TO"] if not os.environ.get(k)]
@@ -278,6 +279,7 @@ def send_email(
             f"Ensure they are set in your environment or in a .env file."
         )
 
+    clean_password = "".join(password.split())
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = user
@@ -294,33 +296,42 @@ def send_email(
                 filename=fname,
             )
 
-    clean_password = "".join(password.split())
     logger.info("Sending email to %s: '%s'", alert_to, subject)
     context = ssl.create_default_context()
 
-    err465: Exception | None = None
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as smtp:
-            smtp.ehlo()
-            smtp.login(user, clean_password)
-            smtp.send_message(msg)
-        logger.info("Email sent successfully via port 465.")
-        return
-    except Exception as exc:
-        err465 = exc
-        logger.warning("SMTP_SSL on port 465 failed (%s); trying fallback port 587 with STARTTLS...", exc)
+    # Force IPv4 during SMTP connection to avoid GitHub Actions Azure IPv6 routing drops
+    orig_getaddrinfo = socket.getaddrinfo
 
+    def _ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        return orig_getaddrinfo(host, port, family=socket.AF_INET, type=type, proto=proto, flags=flags)
+
+    socket.getaddrinfo = _ipv4_getaddrinfo
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
-            smtp.ehlo()
-            smtp.starttls(context=context)
-            smtp.ehlo()
-            smtp.login(user, clean_password)
-            smtp.send_message(msg)
-        logger.info("Email sent successfully via port 587.")
-    except Exception as e587:
-        logger.error("Both port 465 and port 587 failed. 465 error: %s | 587 error: %s", err465, e587)
-        raise e587 from err465
+        err465: Exception | None = None
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as smtp:
+                smtp.ehlo()
+                smtp.login(user, clean_password)
+                smtp.send_message(msg)
+            logger.info("Email sent successfully via port 465.")
+            return
+        except Exception as exc:
+            err465 = exc
+            logger.warning("SMTP_SSL on port 465 failed (%s); trying fallback port 587 with STARTTLS...", exc)
+
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
+                smtp.ehlo()
+                smtp.starttls(context=context)
+                smtp.ehlo()
+                smtp.login(user, clean_password)
+                smtp.send_message(msg)
+            logger.info("Email sent successfully via port 587.")
+        except Exception as e587:
+            logger.error("Both port 465 and port 587 failed. 465 error: %s | 587 error: %s", err465, e587)
+            raise e587 from err465
+    finally:
+        socket.getaddrinfo = orig_getaddrinfo
 
 
 def send_ntfy(topic: str, title: str, message: str) -> None:
