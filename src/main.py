@@ -369,6 +369,7 @@ async def run_crawl(args: argparse.Namespace) -> int:
 
     # Step 6: Email notifications
     emails_sent = 0
+    email_errors: list[str] = []
     dismissed = load_dismissed(cfg.alerts.dismissed_path)
     if not args.dry_run and not args.no_email and cfg.alerts.email_enabled:
         suppressed = store.suppress_repeat_alerts(
@@ -386,7 +387,8 @@ async def run_crawl(args: argparse.Namespace) -> int:
                 if cfg.alerts.ntfy_topic:
                     send_ntfy(cfg.alerts.ntfy_topic, subject, f"{len(pending)} new jobs matched")
             except Exception as e:
-                logger.warning("Failed to send alert email: %s", e)
+                logger.error("Failed to send alert email: %s: %s", type(e).__name__, e)
+                email_errors.append(f"Alert email failed: {type(e).__name__}: {e}")
 
     # Step 7: Daily digest
     if not args.dry_run and not args.no_email and cfg.alerts.email_enabled:
@@ -422,7 +424,8 @@ async def run_crawl(args: argparse.Namespace) -> int:
                 store.set_meta("last_digest_date", today_ist)
                 logger.info("Daily digest sent with jobs.xlsx attached.")
             except Exception as e:
-                logger.warning("Failed to send daily digest: %s", e)
+                logger.error("Failed to send daily digest: %s: %s", type(e).__name__, e)
+                email_errors.append(f"Daily digest failed: {type(e).__name__}: {e}")
 
     store.close()
     elapsed = round(time.perf_counter() - t0, 1)
@@ -434,7 +437,21 @@ async def run_crawl(args: argparse.Namespace) -> int:
         f"emails={emails_sent} | secs={elapsed}"
     )
 
+    if email_errors:
+        # State is already saved and unsent jobs stay alerted=0 for the next run,
+        # but exit non-zero so a broken mail setup shows up as a failed run.
+        report_email_failures(email_errors)
+        return 1
     return 0
+
+
+def report_email_failures(errors: list[str]) -> None:
+    """Log the failed-email count; on GitHub Actions also emit ::error:: annotations."""
+    logger.error("%d email(s) not sent; exiting 1 (unsent jobs retry next run).", len(errors))
+    for message in errors:
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            escaped = " ".join(message.replace("%", "%25").split())
+            print(f"::error title=Email not sent::{escaped}", flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:

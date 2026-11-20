@@ -648,7 +648,7 @@ def send_ntfy(topic: str, title: str, message: str) -> None   # simple POST to h
 - **HTML body:** a table with columns `Role | Company | Stage | Location | Exp | Batch year | Posted | Apply` where Apply is a clickable link. `Stage` shows the company segment and team size (e.g. `Seed · 25 ppl`), blank when unknown. Show detected graduation years in `Batch year`, or `Not specified` if none were parsed. Sort startup-first by segment (B3.1a), then newest first. Show `Exp` as `0-2`, `2+`, or `?` (unknown). Show times in IST.
 - Cap rows at `max_jobs_per_email`. Rows beyond the cap stay `alerted=0` and go out next cycle.
 - HTML-escape every field (job titles come from the internet).
-- `mark_alerted` is called **only after** `send_email` succeeds. On failure: log the error, leave `alerted=0`, continue (the next cycle retries).
+- `mark_alerted` is called **only after** `send_email` succeeds. On failure: log the error, leave `alerted=0`, finish the run (state is still saved; the next cycle retries), then exit `1` so the failed send is visible as a failed workflow run (on GitHub Actions also emit an `::error::` annotation with the reason).
 
 `tests/test_notify.py`: test `build_email` with 3 fake rows (subject format, HTML escaping of `<script>` in a title, cap behaviour). No SMTP calls in tests.
 
@@ -686,7 +686,7 @@ python -m src.main stats               # print DB stats
 7. Unless `--no-email` or `--dry-run`: fetch `pending_alerts(max_jobs_per_email)`; if any → `send_email`; on success → `mark_alerted`; optionally `send_ntfy`.
 8. **Daily digest:** if `now_ist.hour >= daily_digest_hour_ist` and `meta.last_digest_date != today_ist` → send an email with `jobs.xlsx` attached (subject `[GetANaurki] Daily digest: {N} new, {M} open matches`). The body lists only `digest_candidates` (open matches never sent before, e.g. silently seeded boards); earlier matches appear as a count only. On success, `mark_alerted` the listed jobs and set `meta.last_digest_date`.
 9. Print ONE summary line: `run ok | companies=<n> ok=<n> errors=<n> | jobs_seen=<n> new=<n> new_matched=<n> closed=<n> | emails=<0/1> | secs=<n>`.
-10. Exit code: `0` normally (even if some companies failed); `1` only on a crash outside per-company handling; `2` on config errors.
+10. Exit code: `0` normally (even if some companies failed); `1` on a crash outside per-company handling or when an alert/digest email failed to send; `2` on config errors.
 
 `--dry-run`: fetch and evaluate, **write nothing** to the DB, send nothing, print what would be new. (Implement by running `apply_crawl` inside a transaction that is rolled back.)
 
