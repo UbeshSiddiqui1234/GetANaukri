@@ -6,7 +6,7 @@ AccioJob,series_a,120,India,yc:Winter 2019
 Ace Blend,series_a,,India,funding:inc42:2026-10-31
 AdGraam,seed,,India,funding:inc42:2026-10-17
 Advantage Club,series_b,220,India,yc:Summer 2021
-AidenAI,series_b,,India,funding:inc42:2026-11-24
+AidenAI,series_a,,India,funding:inc42:2026-11-28
 AlgoSurg Inc,seed,3,India,yc:Winter 2018
 AlgoTest,series_a,40,India,yc:Summer 2022
 AlgoUniversity,series_a,40,India,yc:Summer 2021
@@ -64,7 +64,7 @@ Confido Health,series_a,,India,funding:inc42:2026-10-17
 CopperPilot,seed,,India,funding:inc42:2026-10-31
 Coratia Technologies,seed,,India,funding:inc42:2026-10-31
 CORE,seed,3,India,yc:Summer 2023
-Cosine Robots,seed,,India,funding:entrackr:2026-11-24
+Cosine Robots,seed,,India,funding:inc42:2026-11-28
 Cosmochute,seed,,India,funding:inc42:2026-10-17
 Cosmoserve,seed,,India,funding:inc42:2026-11-07
 Cosmoserve Space,seed,,India,funding:entrackr:2026-11-05
@@ -108,7 +108,7 @@ farmtheory,series_a,65,India,yc:Winter 2020
 Fatehpuria Hygiene,series_a,,India,funding:entrackr:2026-11-18
 Fieldproxy,seed,15,India,yc:Winter 2022
 FifthTry,seed,4,India,yc:Winter 2021
-Finnable,series_b,,India,funding:entrackr:2026-11-26
+Finnable,series_c_plus,,India,funding:inc42:2026-11-28
 finny.club,unknown,,India,funding:inc42:2026-11-21
 Firstwork,series_a,,India,funding:inc42:2026-10-24
 FlatX,seed,2,India,yc:Summer 2022
@@ -119,11 +119,11 @@ Foundry,seed,,India,funding:inc42:2026-10-17
 Froncort.AI,seed,,India,funding:inc42:2026-11-14
 FrontPage,seed,5,India,yc:Summer 2021
 GimBooks,seed,16,India,yc:Winter 2021
-GIVA,series_a,,India,funding:entrackr:2026-11-26
+GIVA,series_a,,India,funding:inc42:2026-11-28
 Glance,unknown,,India,funding:inc42:2026-10-31
 GoLorry,seed,30,India,yc:Winter 2016
 GoSats,seed,8,other,yc:Winter 2022
-Green Aero,series_a,,India,funding:entrackr:2026-11-26
+Green Aero,series_a,,India,funding:inc42:2026-11-28
 GreenCell Mobility,series_b,,India,funding:inc42:2026-10-17
 Greenjoules,series_b,,India,funding:inc42:2026-11-14
 GroMo,series_a,100,India,yc:Winter 2021
@@ -138,6 +138,7 @@ Hunar,seed,,India,funding:inc42:2026-10-24
 Hundo Pizza,unknown,,India,funding:inc42:2026-11-14
 Hyeglo Beauty,unknown,,India,funding:inc42:2026-11-07
 IMT Care,seed,23,India,yc:Winter 2022
+indē wild,unknown,,India,funding:inc42:2026-11-28
 Infer,seed,9,India,yc:Summer 2021
 InferEdge,seed,20,India,yc:Winter 2022
 Infinity,seed,15,India,yc:Winter 2024
@@ -162,9 +163,9 @@ Kosh,series_a,56,India,yc:Winter 2020
 Koshex,seed,21,India,yc:Summer 2021
 Kutlerri.ai,seed,,India,funding:inc42:2026-11-14
 Lab0,seed,7,India,yc:Spring 2026
-Lakshya Aerotech,seed,,India,funding:entrackr:2026-11-25
+Lakshya Aerotech,seed,,India,funding:inc42:2026-11-28
 Landeed,series_a,35,India,yc:Summer 2022
-Lawvek,seed,,India,funding:entrackr:2026-11-24
+Lawvek,seed,,India,funding:inc42:2026-11-28
 "Layoffs At JioStar, AidenAI",series_b,,India,funding:inc42:2026-11-25
 Leena AI,midsize,500,other,yc:Summer 2018
 Lemonpeel,seed,,India,funding:inc42:2026-11-21
@@ -173,6 +174,7 @@ Live2.ai,series_b,,India,funding:inc42:2026-10-31
 LogiXair,seed,,India,funding:inc42:2026-10-31
 Lokal,seed,24,India,yc:Summer 2019
 Loop Health,seed,27,India,yc:Winter 2020
+M,series_a,,India,funding:inc42:2026-11-28
 Maasi,seed,,India,funding:inc42:2026-10-31
 MakeO,series_a,,India,funding:inc42:2026-10-17
 Manastu Space,seed,,India,funding:inc42:2026-10-31
@@ -180,7 +182,7 @@ Manicule,seed,,India,funding:inc42:2026-10-31
 marketfeed,seed,18,India,yc:Summer 2021
 Material Depot,series_a,50,India,yc:Winter 2022
 Matiks,series_a,,India,funding:inc42:2026-10-31
-Matters.AI,series_a,,India,funding:inc42:2026-11-23
+Matters.AI,series_a,,India,funding:inc42:2026-11-28
 Maya Labs,seed,5,India,yc:Summer 2022
 "MedPiper Technologies, Inc",series_a,55,India,yc:Summer 2020
 Meesho,large,1450,India,yc:Summer 2016
@@ -275,6 +277,7 @@ Statiq.,series_b,200,India,yc:Summer 2020
 StayQrious,seed,29,India,yc:Winter 2020
 Stownest,series_a,80,India,yc:Summer 2021
 Style Union,series_c_plus,,India,funding:inc42:2026-11-21
+SUK-M,seed,,India,funding:inc42:2026-11-28
 SuperAPI,seed,2,India,yc:Winter 2023
 SuperKalam,seed,20,India,yc:Winter 2023
 SureBright,series_a,35,India,yc:Summer 2024
@@ -302,9 +305,10 @@ UrbanKisaan,series_a,53,India,yc:Winter 2020
 Vahan,series_a,85,India,yc:Summer 2019
 Vectorial,seed,,India,funding:inc42:2026-10-24
 Veera Health,seed,4,India,yc:Winter 2021
-Vegapay,series_a,,India,funding:inc42:2026-11-26
+Vegapay,series_a,,India,funding:inc42:2026-11-28
 Venomics AI,seed,,India,funding:inc42:2026-11-07
 Venttup,series_a,,India,funding:inc42:2026-10-31
+Vidyakul,seed,,India,funding:inc42:2026-11-28
 Viridian Ingni Propulsion,unknown,,India,funding:inc42:2026-10-31
 Vitonnix,seed,,India,funding:inc42:2026-10-17
 VitusCare,series_b,,India,funding:inc42:2026-11-21
@@ -316,11 +320,11 @@ Weekday,series_a,38,India,yc:Winter 2021
 "Wifi Dabba, Inc.",seed,21,India,yc:Winter 2017
 Writesonic,series_a,35,India,yc:Summer 2021
 wudhomes,seed,,India,funding:inc42:2026-10-17
-XEBO.ai,series_a,,India,funding:inc42:2026-11-26
+XEBO.ai,series_a,,India,funding:inc42:2026-11-28
 xPay,seed,3,India,yc:Winter 2024
 Y Combinator-Backed Firstwork,series_a,,India,funding:inc42:2026-10-23
 Yenmo,seed,5,India,yc:Winter 2024
-Zavya,series_a,,India,funding:entrackr:2026-11-23
+Zavya,series_a,,India,funding:inc42:2026-11-28
 Zealth,seed,2,India,yc:Winter 2021
 Zeo Route Planner,seed,15,other,yc:Winter 2020
 Zepto,midsize,1300,India,yc:Winter 2021
